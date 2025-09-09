@@ -1,6 +1,4 @@
 import os
-import time
-import json
 import logging
 import threading
 import requests
@@ -9,10 +7,8 @@ from tkinter import messagebox
 # Third-party
 import keyboard
 import pytesseract
-from PIL import Image, ImageGrab
-import numpy as np
+from PIL import Image
 from pystray import Icon as pystray_Icon, Menu as pystray_Menu, MenuItem as pystray_MenuItem
-from skimage.metrics import structural_similarity as ssim
 
 # local imports
 from config import ConfigManager
@@ -20,7 +16,7 @@ from api.openai_manager import OpenAIAPIManager
 from api.worker_api import WorkerTextAPIManager
 from api.vision_api_manager import VisionAPIManager
 from core.video_feature_manager import VideoFeatureManager
-from core.models import DistractionArea
+from core.focus_monitor_manager import FocusMonitorManager 
 from ui.main_window import MainWindow
 from ui.overlay import SmartOverlayManager
 from utils import windows_utils
@@ -38,19 +34,28 @@ class OptimizedProductivitySuite:
         self.root = root
         self.logger = logging.getLogger(__name__)
         self.config = ConfigManager()
+
         self.api_manager = OpenAIAPIManager(self.logger)
         self.worker_api_manager = WorkerTextAPIManager(self.logger)
         self.vision_api_manager = VisionAPIManager(self.logger)
         self.video_manager = VideoFeatureManager(self.logger, self.root, self.vision_api_manager)
+        self.overlay_manager = SmartOverlayManager(self.root)
 
-        self.monitoring = False
-        self.monitor_thread = None
+        monitor_ui_callbacks = {
+            'on_start': self._on_monitoring_started,
+            'on_stop': self._on_monitoring_stopped,
+            'show_message': self.show_ui_message,
+        }
+        self.monitor_manager = FocusMonitorManager(
+            self.root, self.config, self.api_manager, 
+            self.overlay_manager, monitor_ui_callbacks, self.logger
+        )
+
         self.tray_icon = None
-        self.focus_topic = ""
 
         app_callbacks = {
-            'start': self.start_monitoring,
-            'stop': self.stop_monitoring,
+            'start': lambda: self.monitor_manager.start_monitoring(self.ui.distraction_tab.focus_entry.get().strip()),
+            'stop': self.monitor_manager.stop_monitoring,
             'save_settings': self._save_settings_from_ui,
             'test_openai': self.test_openai_api,
             'test_worker': self.test_worker_api,
@@ -61,14 +66,12 @@ class OptimizedProductivitySuite:
             'start_video_processing': self.video_manager.start_video_processing,
         }
         self.ui = MainWindow(root, app_callbacks)
-        self.overlay_manager = SmartOverlayManager(self.root)
-
         self.video_manager.register_ui_tabs(self.ui.video_tab)
 
         self._initialize()
 
     def _initialize(self):
-        # final setup steps after ui is created
+        """Final setup steps after the UI is created."""
         self.root.protocol("WM_DELETE_WINDOW", self.quit_app)
 
         app_title = f"FocusSuite v{APP_VERSION}"
@@ -94,7 +97,10 @@ class OptimizedProductivitySuite:
         self._setup_keyboard_shortcuts()
         self._setup_tray_icon()
         self.check_for_updates()
-        # verify tesseract installation
+        self._verify_tesseract()
+
+    def _verify_tesseract(self):
+        """Checks for Tesseract installation and logs/shows an error if not found."""
         try:
             pytesseract.get_tesseract_version()
             self.logger.info(f"Tesseract version {pytesseract.get_tesseract_version()} found.")
@@ -103,131 +109,26 @@ class OptimizedProductivitySuite:
             self.logger.error(msg)
             self.ui.show_message('error', 'Tesseract Not Found', msg)
 
-    def start_monitoring(self):
-        focus_topic = self.ui.distraction_tab.focus_entry.get().strip()
-        if not focus_topic:
-            self.ui.show_message('warning', "Input Required", "Please enter a focus topic.")
-            return
-        if not self.api_manager.is_available():
-            self.ui.show_message('error', "API Error", "API is not configured or offline. Cannot start.")
-            return
-
-        self.focus_topic = focus_topic
-        self.config.set('last_focus_topic', self.focus_topic)
-        self.config.save()
-        self.monitoring = True
-
+    def _on_monitoring_started(self):
+        """Callback function to update UI when monitoring starts."""
         self.ui.distraction_tab.start_button.config(state='disabled')
         self.ui.distraction_tab.stop_button.config(state='normal')
         self.ui.status_label.config(text="Status: Running")
-        self.logger.info(f"Monitoring started for topic: '{self.focus_topic}'")
         self.hide_to_tray()
-        self.monitor_thread = threading.Thread(target=self._monitor_loop, daemon=True)
-        self.monitor_thread.start()
 
-    def stop_monitoring(self):
-        self.monitoring = False
-        if self.monitor_thread and self.monitor_thread.is_alive():
-            self.monitor_thread.join(timeout=2)
-        self.overlay_manager.hide()
+    def _on_monitoring_stopped(self):
+        """Callback function to update UI when monitoring stops."""
         self.ui.distraction_tab.start_button.config(state='normal')
         self.ui.distraction_tab.stop_button.config(state='disabled')
         self.ui.status_label.config(text="Status: Idle")
-        self.logger.info("Monitoring stopped.")
-
-    def toggle_monitoring(self):
-        if self.monitoring:
-            self.stop_monitoring()
-        else:
-            self.start_monitoring()
-
-    def _monitor_loop(self):
-        last_screenshot_gray = None
-        self.logger.info("Monitor loop started.")
-        while self.monitoring:
-            time.sleep(2)
-
-            if windows_utils.is_whitelisted(self.config.get('whitelist', [])):
-                self.overlay_manager.hide()
-                continue
-
-            try:
-                bbox = windows_utils.get_active_window_bbox()
-                if not bbox:
-                    continue
-                screenshot = ImageGrab.grab(bbox=bbox)
-            except Exception as e:
-                self.logger.error(f"Failed to grab screenshot: {e}")
-                continue
-
-            current_screenshot_small = screenshot.resize((256, 144))
-            current_screenshot_gray = np.array(current_screenshot_small.convert('L'))
-
-            if last_screenshot_gray is not None:
-                score, _ = ssim(last_screenshot_gray, current_screenshot_gray, full=True)
-                if score > 0.98:
-                    continue
-                self.logger.info(f"Significant screen change detected (SSIM Score: {score:.4f}).")
-
-            last_screenshot_gray = current_screenshot_gray
-            distractions = self._process_screenshot(screenshot)
-            
-            if not self.monitoring:
-                break
-
-            adjusted_distractions = []
-            for d in distractions:
-                d.x += bbox[0]
-                d.y += bbox[1]
-                adjusted_distractions.append(d)
-
-            self.root.after(0, self.overlay_manager.update_or_create_overlay, adjusted_distractions)
-            
-            
-    def _process_screenshot(self, screenshot: Image.Image) -> list[DistractionArea]:
-        try:
-            ocr_data = pytesseract.image_to_data(
-                screenshot, output_type=pytesseract.Output.DICT, config='--psm 6'
-            )
-            full_text = " ".join([word for i, word in enumerate(ocr_data['text']) if word.strip() and int(ocr_data['conf'][i]) > 40])
-            if not full_text:
-                return []
-
-            prompt = f"Review the text from a screen. The user's goal is '{self.focus_topic}'. Identify unrelated text. Text: \"{full_text[:3000]}\""
-            response_text = self.api_manager.generate_with_retry(prompt)
-            if not response_text:
-                return []
-
-            data = json.loads(response_text)
-            distracting_phrases = data.get("distractions", [])
-            if not isinstance(distracting_phrases, list) or not distracting_phrases:
-                return []
-
-            self.logger.info(f"Distractions found: {distracting_phrases}")
-
-            distraction_areas = []
-            for phrase in distracting_phrases:
-                phrase_words = phrase.lower().strip().split()
-                if not phrase_words: continue
-
-                for i in range(len(ocr_data['text']) - len(phrase_words) + 1):
-                    ocr_phrase_segment = [ocr_data['text'][i + j].lower() for j in range(len(phrase_words))]
-                    if " ".join(phrase_words) in " ".join(ocr_phrase_segment):
-                        x = ocr_data['left'][i]
-                        y = ocr_data['top'][i]
-                        w = (ocr_data['left'][i + len(phrase_words) - 1] + ocr_data['width'][i + len(phrase_words) - 1]) - x
-                        h = max(ocr_data['height'][k] for k in range(i, i + len(phrase_words)))
-                        distraction_areas.append(DistractionArea(x, y, w, h, 1.0, phrase))
-                        break
-            return distraction_areas
-        except json.JSONDecodeError as e:
-            self.logger.warning(f"Could not parse JSON from API response: {response_text}. Error: {e}")
-            return []
-        except Exception as e:
-            self.logger.error(f"Error processing screenshot: {e}")
-            return []
+        
+    def show_ui_message(self, *args):
+        """Helper to allow managers to show messages in the UI."""
+        self.ui.show_message(*args)
+        
 
     def configure_api_from_settings(self):
+        """Configures the OpenAI API manager from settings or .env file."""
         api_key = self.ui.settings_tab.api_key_entry.get()
         if not api_key:
             api_key = os.getenv("OPENAI_API_KEY")
@@ -242,6 +143,7 @@ class OptimizedProductivitySuite:
             self.ui.connection_label.config(text="API: Offline", style="Error.TLabel")
     
     def test_openai_api(self):
+        """Tests the OpenAI API connection using the key from the UI."""
         api_key = self.ui.settings_tab.api_key_entry.get()
         self.config.set('api_key', api_key)
         self.config.save()
@@ -255,6 +157,7 @@ class OptimizedProductivitySuite:
             self.ui.show_message("error", "Failed", "Could not connect to OpenAI API. Check your key and network.")
 
     def test_worker_api(self):
+        """Tests the local worker API connection using the URL from the UI."""
         worker_url = self.ui.settings_tab.worker_url_entry.get()
         self.config.set('worker_url', worker_url)
         self.config.save()
@@ -266,16 +169,12 @@ class OptimizedProductivitySuite:
             self.ui.show_message("error", "Failed", "Could not connect to the Worker endpoint. Check the URL and ensure the worker is running.")
 
     def _save_settings_from_ui(self, show_success_popup=True):
-        """
-        Gathers settings from all UI tabs and saves them to the config file.
-        """
+        """Gathers settings from all UI tabs and saves them to the config file."""
         try:
-            # Get data from the settings tab using its public helper method
             settings_data = self.ui.settings_tab.get_settings_data()
             for key, value in settings_data.items():
                 self.config.set(key, value)
 
-            # Get data from the distraction tab
             self.config.set('provider', self.ui.distraction_tab.provider_var.get())
             self.config.set('last_focus_topic', self.ui.distraction_tab.focus_entry.get())
             
@@ -289,17 +188,25 @@ class OptimizedProductivitySuite:
             self.ui.show_message('error', 'Error', f'Could not save settings: {e}')
 
     def _setup_keyboard_shortcuts(self):
+        """Registers global hotkeys."""
         try:
-            keyboard.add_hotkey('ctrl+shift+s', self.toggle_monitoring)
+            toggle_func = lambda: self.monitor_manager.toggle_monitoring(
+                get_focus_topic_func=lambda: self.ui.distraction_tab.focus_entry.get().strip()
+            )
+            keyboard.add_hotkey('ctrl+shift+s', toggle_func)
             self.logger.info("Global keyboard shortcut 'Ctrl+Shift+S' registered.")
         except Exception as e:
             self.logger.warning(f"Failed to register global hotkey: {e}. Try running as administrator.")
 
     def _setup_tray_icon(self):
+        """Initializes and runs the system tray icon."""
         image = Image.new('RGB', (64, 64), 'black')
+        toggle_func = lambda: self.monitor_manager.toggle_monitoring(
+                get_focus_topic_func=lambda: self.ui.distraction_tab.focus_entry.get().strip()
+            )
         menu = pystray_Menu(
             pystray_MenuItem('Show', self.show_from_tray, default=True),
-            pystray_MenuItem('Toggle Monitoring', self.toggle_monitoring),
+            pystray_MenuItem('Toggle Monitoring', toggle_func),
             pystray_Menu.SEPARATOR,
             pystray_MenuItem('Quit', self.quit_app)
         )
@@ -307,23 +214,25 @@ class OptimizedProductivitySuite:
         threading.Thread(target=self.tray_icon.run, daemon=True).start()
 
     def hide_to_tray(self):
+        """Hides the main window."""
         self.root.withdraw()
         self.logger.info("Application hidden to system tray.")
 
     def show_from_tray(self):
+        """Shows the main window from the system tray."""
         self.root.deiconify()
 
     def quit_app(self):
+        """Shuts down the application cleanly."""
         self.logger.info("Quit command received. Shutting down.")
-        self.monitoring = False
-        if self.monitor_thread and self.monitor_thread.is_alive():
-            self.monitor_thread.join(timeout=2)
+        self.monitor_manager.stop_monitoring()
         if self.tray_icon:
             self.tray_icon.stop()
         self.root.destroy()
         self.root.quit()
 
     def check_for_updates(self):
+        """Checks for new application versions in a background thread."""
         def run_check():
             try:
                 response = requests.get(UPDATE_CHECK_URL, timeout=5)
