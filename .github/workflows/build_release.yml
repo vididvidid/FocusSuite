@@ -74,7 +74,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download Ubuntu artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: FocusSuite-ubuntu-latest
           path: ./dist
@@ -93,7 +93,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Download macOS artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: FocusSuite-macos-latest
           path: ./dist
@@ -112,7 +112,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Download Windows artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: FocusSuite-windows-latest
           path: ./dist
