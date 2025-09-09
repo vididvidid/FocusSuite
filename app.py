@@ -17,8 +17,7 @@ from skimage.metrics import structural_similarity as ssim
 # local imports
 from config import ConfigManager
 from api.openai_manager import OpenAIAPIManager
-# api.worker_api is not in the provided context, assuming it exists
-# from api.worker_api import WorkerTextAPIManager
+from api.worker_api import WorkerTextAPIManager
 from api.vision_api_manager import VisionAPIManager
 from core.video_feature_manager import VideoFeatureManager
 from core.models import DistractionArea
@@ -40,7 +39,7 @@ class OptimizedProductivitySuite:
         self.logger = logging.getLogger(__name__)
         self.config = ConfigManager()
         self.api_manager = OpenAIAPIManager(self.logger)
-
+        self.worker_api_manager = WorkerTextAPIManager(self.logger)
         self.vision_api_manager = VisionAPIManager(self.logger)
         self.video_manager = VideoFeatureManager(self.logger, self.root, self.vision_api_manager)
 
@@ -53,7 +52,8 @@ class OptimizedProductivitySuite:
             'start': self.start_monitoring,
             'stop': self.stop_monitoring,
             'save_settings': self._save_settings_from_ui,
-            'test_api': self.test_api,
+            'test_openai': self.test_openai_api,
+            'test_worker': self.test_worker_api,
             'get_setting': self.config.get,
             'set_setting': self.config.set,
             'get_version': lambda: APP_VERSION,
@@ -241,15 +241,29 @@ class OptimizedProductivitySuite:
         else:
             self.ui.connection_label.config(text="API: Offline", style="Error.TLabel")
     
-    def test_api(self):
-        """Saves current settings and then tests the API connection."""
-        self._save_settings_from_ui(show_success_popup=False)
+    def test_openai_api(self):
+        api_key = self.ui.settings_tab.api_key_entry.get()
+        self.config.set('api_key', api_key)
+        self.config.save()
+        self.logger.info("Saved OpenAI API key, now testing.")
+        
         self.configure_api_from_settings()
         
         if self.api_manager.test_connection():
-            self.ui.show_message("info", "Success", "API connection successful!")
+            self.ui.show_message("info", "Success", "OpenAI API connection successful!")
         else:
-            self.ui.show_message("error", "Failed", "Could not connect to API. Check your key and network.")
+            self.ui.show_message("error", "Failed", "Could not connect to OpenAI API. Check your key and network.")
+
+    def test_worker_api(self):
+        worker_url = self.ui.settings_tab.worker_url_entry.get()
+        self.config.set('worker_url', worker_url)
+        self.config.save()
+        self.logger.info("Saved Worker URL, now testing.")
+
+        if self.worker_api_manager.test_connection(worker_url):
+            self.ui.show_message("info", "Success", "Worker endpoint connection successful!")
+        else:
+            self.ui.show_message("error", "Failed", "Could not connect to the Worker endpoint. Check the URL and ensure the worker is running.")
 
     def _save_settings_from_ui(self, show_success_popup=True):
         """
