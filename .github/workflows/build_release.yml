@@ -63,6 +63,7 @@ jobs:
             --add-data "FocusSuite/about.txt:." \
             --add-data "FocusSuite/ai.txt:." \
             --hidden-import cv2 \
+            --hidden-import moviepy.editor \
             FocusSuite/main.py
 
       - name: Upload Build Artifact
