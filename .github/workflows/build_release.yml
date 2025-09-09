@@ -1,15 +1,18 @@
 name: Build and Release Executables
 
+# This workflow runs on every push to the 'main' branch for testing.
+# For production, you should change the trigger to run on releases.
 on:
   push:
     branches: [ main ]
-  # Uncomment for releases:
+  # To run this only when you create a new release, uncomment the following:
   # release:
   #   types: [created]
 
 jobs:
   build:
     strategy:
+      # Don't cancel all jobs if one fails
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
@@ -36,17 +39,13 @@ jobs:
             sudo apt-get install -y tesseract-ocr ffmpeg
           fi
 
-      - name: Clean build cache
-        shell: bash
-        run: rm -rf build dist *.spec
-
       - name: Install Python Dependencies
         shell: bash
         run: |
           python -m pip install --upgrade pip
-          pip uninstall -y moviepy
-          pip install moviepy==1.0.3
           pip install pyinstaller
+          # IMPORTANT: Your requirements.txt file should NOT contain pywin32.
+          # It is installed in the next step only on Windows.
           pip install -r requirements.txt
 
       - name: Install Windows-specific dependencies
@@ -54,6 +53,8 @@ jobs:
         run: pip install pywin32
 
       - name: Build with PyInstaller
+        # Explicitly use bash shell for all OSes to ensure consistent
+        # handling of the multi-line command below.
         shell: bash
         run: |
           pyinstaller --name FocusSuite \
@@ -62,7 +63,6 @@ jobs:
             --add-data "FocusSuite/about.txt:." \
             --add-data "FocusSuite/ai.txt:." \
             --hidden-import cv2 \
-            --hidden-import moviepy \
             --hidden-import moviepy.editor \
             --collect-all moviepy \
             FocusSuite/main.py
@@ -71,4 +71,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: FocusSuite-${{ matrix.os }}
+          # The executable and other files will be in the 'dist' directory
           path: dist/
