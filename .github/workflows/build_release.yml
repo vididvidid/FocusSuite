@@ -64,6 +64,8 @@ jobs:
             --add-data "FocusSuite/ai.txt:." \
             --hidden-import cv2 \
             --hidden-import moviepy.editor \
+            --hidden-import imageio.plugins.ffmpeg \
+            --hidden-import PIL.Image \
             FocusSuite/main.py
 
       - name: Upload Build Artifact
