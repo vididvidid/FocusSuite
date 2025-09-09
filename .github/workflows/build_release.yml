@@ -71,54 +71,59 @@ jobs:
           name: FocusSuite-${{ matrix.os }}
           path: dist/
 
-  upload-release-assets:
+  upload-ubuntu:
     needs: build
+    if: contains(matrix.os, 'ubuntu-latest') || github.event.release
     runs-on: ubuntu-latest
     steps:
-      - name: Download build artifact for Ubuntu
-        if: contains(needs.build.outputs.artifact-name, 'ubuntu-latest')
+      - name: Download Ubuntu artifact
         uses: actions/download-artifact@v3
         with:
           name: FocusSuite-ubuntu-latest
-          path: ./dist_ubuntu
+          path: ./dist
 
-      - name: Download build artifact for macOS
-        if: contains(needs.build.outputs.artifact-name, 'macos-latest')
-        uses: actions/download-artifact@v3
-        with:
-          name: FocusSuite-macos-latest
-          path: ./dist_macos
-
-      - name: Download build artifact for Windows
-        if: contains(needs.build.outputs.artifact-name, 'windows-latest')
-        uses: actions/download-artifact@v3
-        with:
-          name: FocusSuite-windows-latest
-          path: ./dist_windows
-
-      - name: Upload executable for Ubuntu
-        if: github.event.release && github.event.release.tag_name && runners.os == 'Linux'
+      - name: Upload Ubuntu executable as release asset
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./dist_ubuntu/FocusSuite
+          asset_path: ./dist/FocusSuite  # check this filename after build
           asset_name: FocusSuite-linux
           asset_content_type: application/octet-stream
 
-      - name: Upload executable for macOS
-        if: github.event.release && github.event.release.tag_name && runners.os == 'macOS'
+  upload-macos:
+    needs: build
+    if: contains(matrix.os, 'macos-latest') || github.event.release
+    runs-on: macos-latest
+    steps:
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: FocusSuite-macos-latest
+          path: ./dist
+
+      - name: Upload macOS executable as release asset
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./dist_macos/FocusSuite
+          asset_path: ./dist/FocusSuite  # adjust if different filename
           asset_name: FocusSuite-macos
           asset_content_type: application/octet-stream
 
-      - name: Upload executable for Windows
-        if: github.event.release && github.event.release.tag_name && runners.os == 'Windows'
+  upload-windows:
+    needs: build
+    if: contains(matrix.os, 'windows-latest') || github.event.release
+    runs-on: windows-latest
+    steps:
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: FocusSuite-windows-latest
+          path: ./dist
+
+      - name: Upload Windows executable as release asset
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./dist_windows/FocusSuite.exe
+          asset_path: ./dist/FocusSuite.exe
           asset_name: FocusSuite-win.exe
           asset_content_type: application/octet-stream
