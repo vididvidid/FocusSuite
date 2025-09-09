@@ -1,65 +1,66 @@
 name: Build and Release Executables
 
-# This action runs automatically whenever you create a new release on GitHub.
+# For testing, this runs on every push to the 'main' branch.
+# IMPORTANT: Once you are done testing, change this back to the 'release' trigger.
 on:
-  release:
-    types: [created]
+  push:
+    branches: [ main ]
 
 jobs:
   build:
-    # This strategy creates a "matrix" to run the same job on three different OSes.
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
-    # The virtual machine that the job will run on, based on the matrix.
     runs-on: ${{ matrix.os }}
 
     steps:
-      # Step 1: Check out your code from the repository.
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Step 2: Set up the specific version of Python your project needs.
       - name: Set up Python 3.9
         uses: actions/setup-python@v5
         with:
           python-version: '3.9'
 
-      # Step 3: Install all your project's dependencies from requirements.txt.
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install pyinstaller
-          pip install -r requirements.txt
-
-      # Step 4: Run PyInstaller to create the single-file executable.
-      # It targets your app's entry point at FocusSuite/main.py.
-      - name: Build with PyInstaller
-        run: pyinstaller --name FocusSuite --windowed --onefile FocusSuite/main.py
-
-      # Step 5: Rename the output files to be platform-specific.
-      - name: Prepare Artifact Name
-        id: artifact_name
+      # Step 3: Install essential system dependencies (Tesseract and FFmpeg)
+      - name: Install System Dependencies
         shell: bash
         run: |
           if [ "$RUNNER_OS" == "Windows" ]; then
-            echo "ASSET_NAME=FocusSuite-Windows-x64.exe" >> $GITHUB_ENV
-            echo "ASSET_PATH=dist/FocusSuite.exe" >> $GITHUB_ENV
+            choco install tesseract-ocr ffmpeg
           elif [ "$RUNNER_OS" == "macOS" ]; then
-            echo "ASSET_NAME=FocusSuite-macOS" >> $GITHUB_ENV
-            echo "ASSET_PATH=dist/FocusSuite" >> $GITHUB_ENV
+            brew install tesseract ffmpeg
           else
-            echo "ASSET_NAME=FocusSuite-Linux-x86_64" >> $GITHUB_ENV
-            echo "ASSET_PATH=dist/FocusSuite" >> $GITHUB_ENV
+            sudo apt-get update
+            sudo apt-get install -y tesseract-ocr ffmpeg
 
-      # Step 6: Upload the newly created executable to your GitHub Release page.
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
+      # Step 4: Install Python dependencies
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          # Install all common packages
+          pip install -r requirements.txt --ignore-installed pywin32
+      
+      # Step 4.1: Install Windows-specific dependencies only on Windows
+      - name: Install Windows-specific dependencies
+        if: matrix.os == 'windows-latest'
+        run: pip install pywin32
+
+      # Step 5: Build the executable with PyInstaller
+      - name: Build with PyInstaller
+        run: >
+          pyinstaller --name FocusSuite 
+          --windowed 
+          --onefile 
+          --add-data "FocusSuite/FocusSuite/about.txt:." 
+          --add-data "FocusSuite/FocusSuite/ai.txt:." 
+          FocusSuite/FocusSuite/main.py
+
+      # Step 6: Upload the build artifact for testing
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
         with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ${{ env.ASSET_PATH }}
-          asset_name: ${{ env.ASSET_NAME }}
-          asset_content_type: application/octet-stream
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: FocusSuite-${{ matrix.os }}
+          path: dist/
