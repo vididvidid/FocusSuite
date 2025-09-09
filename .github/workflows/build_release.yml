@@ -1,1 +1,65 @@
+name: Build and Release Executables
 
+# This action runs automatically whenever you create a new release on GitHub.
+on:
+  release:
+    types: [created]
+
+jobs:
+  build:
+    # This strategy creates a "matrix" to run the same job on three different OSes.
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    # The virtual machine that the job will run on, based on the matrix.
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      # Step 1: Check out your code from the repository.
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Set up the specific version of Python your project needs.
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      # Step 3: Install all your project's dependencies from requirements.txt.
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install -r requirements.txt
+
+      # Step 4: Run PyInstaller to create the single-file executable.
+      # It targets your app's entry point at FocusSuite/main.py.
+      - name: Build with PyInstaller
+        run: pyinstaller --name FocusSuite --windowed --onefile FocusSuite/main.py
+
+      # Step 5: Rename the output files to be platform-specific.
+      - name: Prepare Artifact Name
+        id: artifact_name
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            echo "ASSET_NAME=FocusSuite-Windows-x64.exe" >> $GITHUB_ENV
+            echo "ASSET_PATH=dist/FocusSuite.exe" >> $GITHUB_ENV
+          elif [ "$RUNNER_OS" == "macOS" ]; then
+            echo "ASSET_NAME=FocusSuite-macOS" >> $GITHUB_ENV
+            echo "ASSET_PATH=dist/FocusSuite" >> $GITHUB_ENV
+          else
+            echo "ASSET_NAME=FocusSuite-Linux-x86_64" >> $GITHUB_ENV
+            echo "ASSET_PATH=dist/FocusSuite" >> $GITHUB_ENV
+
+      # Step 6: Upload the newly created executable to your GitHub Release page.
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ${{ env.ASSET_PATH }}
+          asset_name: ${{ env.ASSET_NAME }}
+          asset_content_type: application/octet-stream
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
