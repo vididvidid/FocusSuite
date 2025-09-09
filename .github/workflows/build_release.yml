@@ -12,9 +12,6 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
 
-    outputs:
-      artifact-name: FocusSuite-${{ matrix.os }}
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -73,7 +70,7 @@ jobs:
 
   upload-ubuntu:
     needs: build
-    if: contains(matrix.os, 'ubuntu-latest') || github.event.release
+    if: github.event.release
     runs-on: ubuntu-latest
     steps:
       - name: Download Ubuntu artifact
@@ -86,13 +83,13 @@ jobs:
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./dist/FocusSuite  # check this filename after build
+          asset_path: ./dist/FocusSuite
           asset_name: FocusSuite-linux
           asset_content_type: application/octet-stream
 
   upload-macos:
     needs: build
-    if: contains(matrix.os, 'macos-latest') || github.event.release
+    if: github.event.release
     runs-on: macos-latest
     steps:
       - name: Download macOS artifact
@@ -105,13 +102,13 @@ jobs:
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./dist/FocusSuite  # adjust if different filename
+          asset_path: ./dist/FocusSuite
           asset_name: FocusSuite-macos
           asset_content_type: application/octet-stream
 
   upload-windows:
     needs: build
-    if: contains(matrix.os, 'windows-latest') || github.event.release
+    if: github.event.release
     runs-on: windows-latest
     steps:
       - name: Download Windows artifact
