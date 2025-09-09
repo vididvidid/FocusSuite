@@ -10,6 +10,7 @@ class SettingsTab(ttk.Frame):
 
         self.api_key_entry = None
         self.worker_url_entry = None
+        self.vision_api_url_entry = None # Added for the Vision API
         self.whitelist_text = None
 
         self._setup_widgets()
@@ -18,11 +19,12 @@ class SettingsTab(ttk.Frame):
         
         self._create_openai_frame()
         self._create_worker_frame()
+        self._create_vision_api_frame() # Added frame for Vision API
         self._create_whitelist_frame()
         self._create_appearance_frame()
 
         
-        save_button = ttk.Button(self, text="Save Whitelist & Appearance",
+        save_button = ttk.Button(self, text="Save All Settings",
                                  command=self.callbacks['save_settings'])
         save_button.pack(pady=20)
 
@@ -54,6 +56,16 @@ class SettingsTab(ttk.Frame):
         test_button = ttk.Button(frame, text="Save & Test", command=self.callbacks['test_worker'])
         test_button.grid(row=0, column=2, padx=5)
 
+    def _create_vision_api_frame(self):
+        """Creates the dedicated frame for the Vision API configuration."""
+        frame = ttk.LabelFrame(self, text="Vision API Configuration", padding=10)
+        frame.pack(fill='x', padx=5, pady=5)
+        frame.grid_columnconfigure(1, weight=1)
+
+        ttk.Label(frame, text="Vision API URL:").grid(row=0, column=0, sticky='w', pady=2)
+        self.vision_api_url_entry = ttk.Entry(frame, width=50)
+        self.vision_api_url_entry.grid(row=0, column=1, padx=5, pady=2, sticky='ew')
+
     def _create_whitelist_frame(self):
         whitelist_frame = ttk.LabelFrame(self, text="Whitelist (one window title per line)", padding=10)
         whitelist_frame.pack(fill='both', padx=5, pady=5, expand=True)
@@ -69,20 +81,29 @@ class SettingsTab(ttk.Frame):
         dark_rb.pack(side='left', padx=10)
 
     def get_settings_data(self) -> dict:
+        """Gathers all settings from the UI widgets into a dictionary."""
         return {
             'api_key': self.api_key_entry.get(),
             'worker_url': self.worker_url_entry.get(),
+            'vision_api_url': self.vision_api_url_entry.get(), # Added Vision API URL
             'whitelist': self.whitelist_text.get('1.0', 'end-1c').splitlines()
         }
 
     def load_settings_data(self, settings: dict):
+        """Populates the UI widgets with values from the config file."""
         self.api_key_entry.delete(0, 'end')
         self.api_key_entry.insert(0, settings.get('api_key', ''))
+        
         self.worker_url_entry.delete(0, 'end')
         self.worker_url_entry.insert(0, settings.get('worker_url', ''))
+        
+        self.vision_api_url_entry.delete(0, 'end')
+        self.vision_api_url_entry.insert(0, settings.get('vision_api_url', ''))
+
         self.whitelist_text.delete('1.0', 'end')
         self.whitelist_text.insert('1.0', "\n".join(settings.get('whitelist', [])))
 
     def apply_theme(self, colors: dict):
+        """Applies theme colors to specific text widgets."""
         if self.whitelist_text:
             self.whitelist_text.configure(bg=colors["console_bg"], fg=colors["fg"])
