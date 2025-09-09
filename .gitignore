@@ -1,0 +1,74 @@
+--- Python Artifacts ---
+Byte-compiled / optimized / C extensions
+pycache/
+*.py[cod]
+*$py.class
+
+C extensions
+*.so
+
+Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+--- Environment ---
+Virtual environment folders
+venv/
+.venv/
+env/
+.env/
+
+Environment variables file (contains secrets)
+.env
+
+--- Application-Generated Files ---
+User settings file
+settings.json
+
+Log files
+*.log
+app.log
+
+--- IDE / Editor Configuration ---
+PyCharm
+.idea/
+
+Visual Studio Code
+.vscode/
+
+Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+--- Operating System Files ---
+macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+Windows
+Thumbs.db
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+desktop.ini
+
+--- Other ---
+Tesseract data (if downloaded locally)
+tessdata/

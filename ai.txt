@@ -1,0 +1,118 @@
+AI Assistant Context: FocusSuite Application
+
+You are an expert Python developer and AI assistant. Your task is to help maintain and extend the "FocusSuite" desktop application. Use this document as your primary source of context to ensure your responses are accurate and align with the existing architecture.
+
+1. Core Project Summary
+
+Name: FocusSuite
+
+Purpose: A desktop productivity tool that identifies and hides on-screen text distractions using OCR/OpenAI, and also processes video files to blur elements based on a user prompt.
+
+Core Technologies: Python, Tkinter, Tesseract OCR, OpenAI (gpt-4o), OpenCV, MoviePy, Pillow, scikit-image, pywin32
+
+Key Features:
+
+Dynamically blocks distracting text elements based on a user-defined "focus topic."
+
+Processes user-selected videos to blur objects or scenery matching a descriptive prompt.
+
+2. Architectural Principles
+
+The project strictly follows these principles. Your suggestions must adhere to them.
+
+Separation of Concerns (SoC): UI (ui/), logic (app.py, core/), and external services (api/) are completely decoupled.
+
+Callback-Based UI Interaction: The core logic is headless. It communicates with the UI via a dictionary of callbacks passed during initialization.
+
+Single Responsibility Principle: Each file and class has a single, well-defined purpose. For example, api/openai_manager.py only deals with OpenAI, and core/video_processor.py only handles video file manipulation.
+
+Feature Encapsulation: Major features have a dedicated manager in the core/ directory (e.g., VideoFeatureManager) that contains orchestration logic, which app.py delegates to.
+
+3. Key Components and Responsibilities
+
+main.py: Entry point. Initializes the root window and the main OptimizedProductivitySuite class.
+
+app.py: The orchestrator. Holds application state, creates all manager/UI components, and defines the app_callbacks dictionary to delegate tasks. It does not contain feature-specific business logic.
+
+ui/main_window.py: The main UI container. Defines the main window, notebook, and status bar. It loads tab modules like video_tab.py but contains no business logic.
+
+ui/tabs/video_tab.py: The video UI. Defines all widgets for the "Focus Video" tab. Maps all widget commands to the app_callbacks dictionary.
+
+api/openai_manager.py: Handles all interactions with the OpenAI text analysis API.
+
+api/vision_api_manager.py: Handles all interactions with the external vision API for frame analysis.
+
+core/video_feature_manager.py: The "brain" for the video feature. Orchestrates the process from UI event to final video file, running the processor in a background thread.
+
+core/video_processor.py: The "muscle" for the video feature. Handles frame extraction, blurring, and video reconstruction.
+
+config.py: Settings manager for settings.json.
+
+4. Primary Data Flows
+4.1 Focus Monitor Loop
+
+User clicks "Start," which triggers the start_monitoring callback in app.py.
+
+A new thread is started for the _monitor_loop.
+
+Loop steps:
+
+Check for whitelisted window
+
+Grab screenshot
+
+Compare with last screenshot using SSIM
+
+Perform OCR
+
+Send text to openai_manager
+
+Parse response
+
+Call overlay_manager to draw rectangles
+
+4.2 Focus Video Process
+
+User clicks "Start Processing," which triggers the start_video_processing callback in app.py.
+
+app.py delegates the call to video_manager.start_video_processing().
+
+video_manager starts a new background thread for _processing_worker.
+
+Worker steps:
+
+Instantiate VideoProcessor
+
+Call processor.process_video()
+
+Inside process_video:
+
+Extract unique frames using OpenCV and SSIM
+
+Call vision_api_manager in parallel for each unique frame
+
+Blur frames where the API response is "yes"
+
+Reconstruct the video using OpenCV and add audio using MoviePy
+
+video_manager shows a success or error message upon completion
+
+5. Common Tasks and Implementation Patterns
+
+To Add a New UI Setting: Add the widget to the relevant UI file (e.g., main_window.py). Bind it to a new key in self.callbacks. In app.py, add the method and include it in the app_callbacks dictionary.
+
+To Add a Major New Feature:
+
+Create a UI module for the feature's tab in ui/tabs/.
+
+Create a "Feature Manager" class in core/ to orchestrate the feature.
+
+Create "Processor" or "Core" classes for heavy logic if needed.
+
+In app.py, instantiate the new manager and delegate UI callbacks to its methods.
+
+To Modify AI Behavior:
+
+For text analysis, edit the prompt in _process_screenshot in app.py.
+
+For video analysis, edit the prompt in _process_frames_api in core/video_processor.py.

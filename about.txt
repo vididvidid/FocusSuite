@@ -1,0 +1,126 @@
+FocusSuite - Technical Documentation
+
+Version: 2.1.0
+Last Updated: September 9, 2025
+
+1. Overview
+
+FocusSuite is a Python-based desktop productivity application designed to help users maintain focus. Its main feature identifies and obscures on-screen text distractions. A secondary feature processes video files to automatically blur elements based on a descriptive prompt.
+
+1.1 Core Technologies
+
+UI Framework: Tkinter (ttk themed widgets)
+
+AI/LLM Integration: OpenAI API (gpt-4o), external Vision API
+
+Screen Analysis: Pillow, Tesseract (OCR), scikit-image (change detection)
+
+Video Processing: OpenCV, MoviePy
+
+System Integration: pystray (system tray), keyboard (global hotkeys), pywin32 (Windows functions)
+
+2. Architectural Design
+
+The application follows a Separation of Concerns (SoC) architecture. Core logic, user interface, API communication, and utilities are organized into separate modules. This makes the system easier to maintain, scale, and test.
+
+2.1 Data Flow (Focus Monitor)
+
+UI (ui/main_window.py): A user action (like clicking "Start") triggers a callback.
+
+Application Core (app.py): Manages state and starts the monitoring loop in a background thread.
+
+Monitoring Loop (_monitor_loop): Uses SSIM comparison to detect screen changes efficiently.
+
+Screenshot Processing (_process_screenshot): Extracts text with Tesseract OCR and sends it to the OpenAI API manager.
+
+Response Handling: Results are passed to the SmartOverlayManager to render blur overlays.
+
+2.2 Data Flow (Focus Video)
+
+UI (ui/tabs/video_tab.py): The user selects a video, enters a prompt, and clicks "Start Processing."
+
+Application Core (app.py): Delegates the task to the VideoFeatureManager.
+
+Feature Manager (core/video_feature_manager.py): Runs video processing in a background thread and calls the VideoProcessor.
+
+Video Processor (core/video_processor.py):
+
+Extracts frames with OpenCV.
+
+Uses SSIM to skip redundant frames.
+
+Calls the Vision API manager to analyze frames.
+
+Blurs identified frames with OpenCV.
+
+Reconstructs the video and attaches audio with MoviePy.
+
+API Manager (api/vision_api_manager.py): Handles Vision API communication.
+
+3. Project Structure
+/FocusSuite/
+├── main.py                 # Application entry point  
+├── app.py                  # Central application class  
+├── config.py               # Loads/saves settings  
+├── requirements.txt        # Dependencies  
+├── .env.example            # API key template  
+
+├── api/  
+│   ├── openai_manager.py   # Handles OpenAI API requests  
+│   └── vision_api_manager.py # Handles Vision API requests  
+
+├── core/  
+│   ├── models.py           # Defines DistractionArea dataclass  
+│   ├── video_feature_manager.py # Orchestrates video feature  
+│   └── video_processor.py  # Frame extraction, analysis, reconstruction  
+
+├── ui/  
+│   ├── main_window.py      # Main application window  
+│   ├── overlay.py          # Manages on-screen blur overlay  
+│   ├── themed_style.py     # Custom themes for UI  
+│   └── tabs/  
+│       └── video_tab.py    # Focus Video tab  
+
+└── utils/  
+    ├── constants.py        # Global constants  
+    ├── logger.py           # Logging configuration  
+    └── windows_utils.py    # Windows-specific code  
+
+4. Setup and Installation
+Prerequisites
+
+Python 3.9+
+
+Tesseract OCR
+
+FFmpeg (recommended for MoviePy)
+
+Installation Steps
+
+Clone the repository.
+
+Create a virtual environment.
+
+Install dependencies:
+
+pip install -r requirements.txt
+
+
+Configure API keys in a .env file.
+
+Run the application:
+
+python main.py
+
+5. Key Components Deep Dive
+5.1 UI and Logic Decoupling
+
+app.py defines functions and passes them to MainWindow. The UI modules (main_window.py, video_tab.py) bind their widgets to these callbacks, so UI changes don’t affect the core logic.
+
+5.2 Efficient Monitoring and Processing
+
+Both the screen monitor and video processor use SSIM to compare frames. Expensive API calls only happen when similarity drops below a threshold, which reduces costs and CPU usage.
+
+5.3 Feature Encapsulation
+
+Major features (like video processing) are wrapped in dedicated managers, such as video_feature_manager.py. The main app.py only handles high-level orchestration.

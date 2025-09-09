@@ -1,0 +1,12 @@
+openai
+requests
+Pillow
+numpy
+scikit-image
+pytesseract
+python-dotenv
+pystray
+keyboard
+psutil
+pywin32
+
