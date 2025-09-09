@@ -62,6 +62,7 @@ jobs:
             --onefile \
             --add-data "FocusSuite/about.txt:." \
             --add-data "FocusSuite/ai.txt:." \
+            --hidden-import cv2 \
             FocusSuite/main.py
 
       - name: Upload Build Artifact
