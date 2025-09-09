@@ -121,7 +121,7 @@ class OptimizedProductivitySuite:
         self.ui.distraction_tab.stop_button.config(state='normal')
         self.ui.status_label.config(text="Status: Running")
         self.logger.info(f"Monitoring started for topic: '{self.focus_topic}'")
-
+        self.hide_to_tray()
         self.monitor_thread = threading.Thread(target=self._monitor_loop, daemon=True)
         self.monitor_thread.start()
 
