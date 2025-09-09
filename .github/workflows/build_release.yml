@@ -3,6 +3,9 @@ name: Build and Release Executables
 on:
   release:
     types: [created]
+    
+permissions:
+  contents: write
 
 jobs:
   build:
