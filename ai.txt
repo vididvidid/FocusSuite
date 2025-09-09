@@ -1,8 +1,8 @@
 AI Assistant Context: FocusSuite Application
 
-You are an expert Python developer and AI assistant. Your task is to help maintain and extend the "FocusSuite" desktop application.
+You are an expert Python developer and AI assistant.
+Your task is to help maintain and extend the "FocusSuite" desktop application.
 Use this document as your primary source of context to ensure your responses are accurate and align with the existing architecture.
-
 1. Core Project Summary
 
 Name: FocusSuite
@@ -11,17 +11,21 @@ Core Technologies: Python, Tkinter, Tesseract OCR, OpenAI (gpt-4o), OpenCV, Movi
 
 2. Architectural Principles
 
-The project strictly follows these principles. Your suggestions must adhere to them.
+The project strictly follows these principles.
+Your suggestions must adhere to them.
 * **Separation of Concerns (SoC)**: UI (`ui/`), logic (`app.py`, `core/`), and external services (`api/`) are completely decoupled.
 * **Callback-Based UI Interaction**: The core logic is headless. It communicates with the UI via a dictionary of callbacks passed during initialization.
-* **Single Responsibility Principle**: Each file and class has a single, well-defined purpose. For example, `ui/tabs/settings_tab.py` only builds the settings UI, and `core/video_processor.py` only handles video file manipulation.
-* **Feature Encapsulation**: Major features have a dedicated manager in the `core/` directory (e.g., `VideoFeatureManager`) that contains orchestration logic, which `app.py` delegates to.
-
+* **Single Responsibility Principle**: Each file and class has a single, well-defined purpose.
+For example, `ui/tabs/settings_tab.py` only builds the settings UI, and `core/video_processor.py` only handles video file manipulation.
+* **Feature Encapsulation**: Major features have a dedicated manager in the `core/` directory (e.g., `FocusMonitorManager`, `VideoFeatureManager`) that contains orchestration logic, which `app.py` delegates to.
 3. Key Components and Responsibilities
 
 `main.py`: Entry point. Initializes the root window, `app.py`, and the logging system.
-`app.py`: The orchestrator. Holds application state, creates all manager/UI components, and defines the `app_callbacks` dictionary to delegate tasks. It does not contain feature-specific business logic.
-`ui/main_window.py`: The top-level window assembler. Defines the main window, notebook container, and status bar. It instantiates and arranges tab modules.
+`app.py`: The orchestrator.
+Holds application state, creates all manager/UI components, and defines the `app_callbacks` dictionary to delegate tasks.
+It does not contain feature-specific business logic.
+`ui/main_window.py`: The top-level window assembler.
+Defines the main window, notebook container, and status bar. It instantiates and arranges tab modules.
 `ui/tabs/distraction_tab.py`: Defines all widgets for the "Distraction Blocker" feature. Maps widget commands to the `app_callbacks` dictionary.
 `ui/tabs/settings_tab.py`: Defines all widgets for the "Settings" tab and provides methods for getting/setting their values.
 `ui/tabs/video_tab.py`: Defines all widgets for the "Focus Video" tab.
@@ -29,14 +33,15 @@ The project strictly follows these principles. Your suggestions must adhere to t
 `api/openai_manager.py`: Handles all interactions with the OpenAI text analysis API. Includes a `test_connection` method for API key validation.
 `api/worker_api.py`: Handles all interactions with a local/self-hosted LLM via a worker endpoint. Acts as an alternative to `openai_manager.py`.
 `api/vision_api_manager.py`: Handles all interactions with the external vision API for frame analysis.
-`core/video_feature_manager.py`: The "brain" for the video feature. Manages UI interaction, automatically generates the output filename, and orchestrates the `VideoProcessor` in a background thread.
+`core/focus_monitor_manager.py`: The "brain" for the screen monitoring feature. Manages the background thread, screen capture, OCR, and calls to the text analysis API.
+`core/video_feature_manager.py`: The "brain" for the video feature.
+Manages UI interaction, automatically generates the output filename, and orchestrates the `VideoProcessor` in a background thread.
 `core/video_processor.py`: The "muscle" for the video feature. Handles frame extraction (with an adjusted SSIM threshold for better scene detection), building a robust "blur timeline" to ensure consistency, and final video reconstruction with proper file handle management.
-
 4. Primary Data Flows
 
 4.1 Focus Monitor Loop
-User clicks "Start" in the UI, which triggers the `start_monitoring` callback in `app.py`. A new thread is started for the `_monitor_loop`. The loop then performs OCR and sends text to the currently selected text API manager (`openai_manager` or `worker_api`), with results passed to `overlay_manager`.
-
+User clicks "Start" in the UI, which triggers the `start` callback in `app.py`.
+`app.py` immediately delegates to `focus_monitor_manager.start_monitoring()`. The manager then starts a new thread for the `_monitor_loop`, which performs OCR, sends text to the selected API manager, and passes results to `overlay_manager`.
 4.2 Focus Video Process
 User clicks "Start Processing," triggering `app.py` to delegate the call to `video_feature_manager.start_video_processing()`.
 The manager automatically determines the output filename (e.g., `original_edited.mp4`).
@@ -44,17 +49,18 @@ A background worker is started, which calls `video_processor.process_video()`.
 Inside `process_video`:
 * Extract unique frames using OpenCV and SSIM.
 * Call `vision_api_manager` in parallel for each unique frame.
-* **Generate a definitive "blur timeline"** array for the entire video's duration, propagating the AI's decision for a unique frame to all subsequent similar frames. This ensures smooth, non-flickering blurs.
+* **Generate a definitive "blur timeline"** array for the entire video's duration, propagating the AI's decision for a unique frame to all subsequent similar frames.
+This ensures smooth, non-flickering blurs.
 * Reconstruct the video frame-by-frame according to the timeline, applying blurs where needed.
 * Add audio using MoviePy, ensuring all `VideoFileClip` objects are closed to prevent file locking errors.
-
 5. Common Tasks and Implementation Patterns
-To Add a New UI Setting: Add the widget to the relevant tab class in the `ui/tabs/` directory. Update `get_settings_data()` or other methods in that class. Modify `app.py` to use the new setting from the config.
+To Add a New UI Setting: Add the widget to the relevant tab class in the `ui/tabs/` directory.
+Update `get_settings_data()` or other methods in that class. Modify `app.py` to use the new setting from the config.
 To Add a Major New Feature:
 * Create a UI module for the feature's tab in `ui/tabs/`.
 * Create a "Feature Manager" class in `core/` to orchestrate the feature.
 * Create "Processor" or "Core" classes for heavy logic if needed.
 * In `app.py`, instantiate the new manager and delegate UI callbacks to its methods.
 To Modify AI Behavior:
-* The high-level prompt is constructed in `_process_screenshot` in `app.py`.
+* The high-level prompt is constructed in `_process_screenshot` in `core/focus_monitor_manager.py`.
 * Model-specific instructions (like system messages or output formatting) are located in the respective API manager files (e.g., `api/openai_manager.py`, `api/worker_api.py`).

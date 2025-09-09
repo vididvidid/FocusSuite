@@ -7,7 +7,6 @@ Last Updated: September 9, 2025
 
 FocusSuite is a Python-based desktop productivity application designed to help users maintain focus.
 Its main feature identifies and obscures on-screen text distractions. A secondary feature processes video files to automatically blur elements based on a descriptive prompt.
-
 1.1 Core Technologies
 
 UI Framework: Tkinter (ttk themed widgets)
@@ -18,17 +17,17 @@ System Integration: pystray (system tray), keyboard (global hotkeys), pywin32 (W
 
 2. Architectural Design
 
-The application follows a Separation of Concerns (SoC) architecture. Core logic, user interface, API communication, and utilities are organized into separate modules.
+The application follows a Separation of Concerns (SoC) architecture.
+Core logic, user interface, API communication, and utilities are organized into separate modules.
 This makes the system easier to maintain, scale, and test.
-
 2.1 Data Flow (Focus Monitor)
 
 A user action (like clicking "Start" in `ui/tabs/distraction_tab.py`) triggers a callback.
-Application Core (app.py): Manages state and starts the monitoring loop in a background thread.
+Application Core (app.py): Receives the callback and delegates the task to the FocusMonitorManager.
+Feature Manager (core/focus_monitor_manager.py): Manages state and starts the monitoring loop in a background thread.
 Monitoring Loop (_monitor_loop): Uses SSIM comparison to detect screen changes efficiently.
 Screenshot Processing (_process_screenshot): Extracts text with Tesseract OCR and sends it to the selected API manager (OpenAI or local Worker).
 Response Handling: Results are passed to the SmartOverlayManager to render blur overlays.
-
 2.2 Data Flow (Focus Video)
 
 UI (ui/tabs/video_tab.py): The user selects a video, enters a prompt, and clicks "Start Processing."
@@ -40,25 +39,27 @@ Video Processor (core/video_processor.py):
 * Creates a definitive "blur timeline" to ensure smooth, continuous blurring and prevent flickering caused by minor AI inconsistencies.
 * Reconstructs the video by applying the blur timeline to the frames.
 * Attaches original audio using MoviePy and properly closes all file handles to prevent errors.
-
 3. Project Structure
 /FocusSuite/
 ├── main.py                 # Application entry point
-├── app.py                  # Central application class
+├── app.py                  # Central application orchestrator
 ├── config.py               # Loads/saves settings
 ├── ...
 ├── api/  
 │   ├── openai_manager.py   # Handles OpenAI API requests, includes connection testing
 │   ├── vision_api_manager.py # Handles Vision API requests
-│   └── worker_api.py       # Handles requests to a local LLM worker endpoint
+│   └── worker_api.py      
+ # Handles requests to a local LLM worker endpoint
 ├── core/  
 │   ├── models.py           # Defines DistractionArea dataclass
+│   ├── focus_monitor_manager.py # Orchestrates the screen monitoring feature
 │   ├── video_feature_manager.py # Orchestrates video feature, including output naming
 │   └── video_processor.py  # Frame extraction, timeline-based blurring, reconstruction
 └── ui/  
     ├── main_window.py      # Assembles the main window, notebook, and status bar
     ├── overlay.py          # Manages on-screen blur overlay
-    ├── themed_style.py     # Custom themes for UI
+    ├── themed_style.py  
+   # Custom themes for UI
     ├── widgets/
     │   └── custom_widgets.py   # Contains reusable widgets like the Console
     └── tabs/  
@@ -67,19 +68,20 @@ Video Processor (core/video_processor.py):
         └── video_tab.py        # UI for the Focus Video feature
 
 4. Setup and Installation
-Prerequisites: Python 3.9+, Tesseract OCR, FFmpeg
+Prerequisites: Python 
+3.9+, Tesseract OCR, FFmpeg
 Install dependencies: `pip install -r requirements.txt`
 Run the application: `python main.py`
 
 5. Key Components Deep Dive
 
 5.1 UI and Logic Decoupling
-The UI is broken into modular tab classes (`video_tab.py`, `distraction_tab.py`, etc.). The main `app.py` class passes callback functions to the UI, so UI changes don’t affect the core logic.
-
+The UI is broken into modular tab classes (`video_tab.py`, `distraction_tab.py`, etc.).
+The main `app.py` class passes callback functions to the UI, so UI changes don’t affect the core logic.
 5.2 Efficient Monitoring and Processing
 Both the screen monitor and video processor use SSIM to compare frames, reducing redundant processing.
-Expensive API calls only happen when visual similarity drops below a threshold. For video, a robust "blur timeline" is generated from the sparse API results to create a smooth final product.
-
+Expensive API calls only happen when visual similarity drops below a threshold.
+For video, a robust "blur timeline" is generated from the sparse API results to create a smooth final product.
 5.3 Feature Encapsulation
-Major features are wrapped in dedicated managers, such as `video_feature_manager.py`.
+Major features are wrapped in dedicated managers, such as `FocusMonitorManager` and `video_feature_manager.py`.
 The main `app.py` class only handles high-level orchestration, delegating feature-specific logic to these managers.
