@@ -31,7 +31,7 @@ jobs:
         shell: bash
         run: |
           if [ "$RUNNER_OS" == "Windows" ]; then
-            choco install tesseract-ocr ffmpeg
+            choco install tesseract-ocr ffmpeg --no-progress
           elif [ "$RUNNER_OS" == "macOS" ]; then
             brew install tesseract ffmpeg
           else
@@ -40,11 +40,12 @@ jobs:
           fi
 
       - name: Install Python Dependencies
+        shell: bash
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller
-          # Install packages from requirements.txt
-          # Note: pywin32 should be removed from requirements.txt and installed separately on Windows
+          # IMPORTANT: Your requirements.txt file should NOT contain pywin32.
+          # It is installed in the next step only on Windows.
           pip install -r requirements.txt
 
       - name: Install Windows-specific dependencies
@@ -52,7 +53,9 @@ jobs:
         run: pip install pywin32
 
       - name: Build with PyInstaller
-        # The backslash allows for a multi-line command for readability
+        # Explicitly use bash shell for all OSes to ensure consistent
+        # handling of the multi-line command below.
+        shell: bash
         run: |
           pyinstaller --name FocusSuite \
             --windowed \
@@ -67,3 +70,4 @@ jobs:
           name: FocusSuite-${{ matrix.os }}
           # The executable and other files will be in the 'dist' directory
           path: dist/
+
