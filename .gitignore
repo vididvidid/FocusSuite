@@ -72,3 +72,4 @@ desktop.ini
 --- Other ---
 Tesseract data (if downloaded locally)
 tessdata/
+settings.json

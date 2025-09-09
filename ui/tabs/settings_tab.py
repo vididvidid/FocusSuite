@@ -10,7 +10,7 @@ class SettingsTab(ttk.Frame):
 
         self.api_key_entry = None
         self.worker_url_entry = None
-        self.vision_api_url_entry = None # Added for the Vision API
+        self.vision_api_url_entry = None 
         self.whitelist_text = None
 
         self._setup_widgets()
@@ -19,7 +19,7 @@ class SettingsTab(ttk.Frame):
         
         self._create_openai_frame()
         self._create_worker_frame()
-        self._create_vision_api_frame() # Added frame for Vision API
+        self._create_vision_api_frame() 
         self._create_whitelist_frame()
         self._create_appearance_frame()
 
@@ -85,7 +85,7 @@ class SettingsTab(ttk.Frame):
         return {
             'api_key': self.api_key_entry.get(),
             'worker_url': self.worker_url_entry.get(),
-            'vision_api_url': self.vision_api_url_entry.get(), # Added Vision API URL
+            'vision_api_url': self.vision_api_url_entry.get(),
             'whitelist': self.whitelist_text.get('1.0', 'end-1c').splitlines()
         }
 
