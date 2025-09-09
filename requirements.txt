@@ -9,3 +9,4 @@ pystray
 keyboard
 psutil
 opencv-python
+moviepy
