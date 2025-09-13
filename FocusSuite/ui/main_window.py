@@ -1,3 +1,5 @@
+# main_window.py
+
 import tkinter as tk
 from tkinter import ttk, messagebox
 from ui.themed_style import ThemedStyle
@@ -9,7 +11,7 @@ class MainWindow:
     def __init__(self, root, app_callbacks):
         self.root = root
         self.callbacks = app_callbacks
-        self.theme_name = self.callbacks['get_setting']('theme','light')
+        self.theme_name = self.callbacks['get_setting']('theme', 'scholarly_light') # <-- Changed default
 
         self.root.title(f"FocusSuite v{self.callbacks['get_version']()}")
         self.style = ThemedStyle()
@@ -52,6 +54,8 @@ class MainWindow:
             self.distraction_tab.apply_theme(theme_colors)
         if self.settings_tab:
             self.settings_tab.apply_theme(theme_colors)
+        
+        # Video tab does not have a custom apply_theme, but will inherit styles
 
     def _create_status_bar(self):
         status_bar = ttk.Frame(self.root)

@@ -1,3 +1,5 @@
+# distraction_tab.py
+
 import tkinter as tk
 from tkinter import ttk
 from ui.widgets.custom_widgets import Console
@@ -58,7 +60,8 @@ class DistractionBlockerTab(ttk.Frame):
         console_frame = ttk.LabelFrame(self, text="Log", padding=5)
         console_frame.pack(fill='both', expand=True, padx=10, pady=5)
 
-        self.console_text = Console(console_frame, height=10, font=('Consolas', 9), wrap='word')
+        # CORRECTED FONT TUPLE
+        self.console_text = Console(console_frame, height=10, font=('IBM Plex Mono', 9), wrap='word')
         self.console_text.pack(side='left', fill='both', expand=True)
 
         console_scroll = ttk.Scrollbar(console_frame, command=self.console_text.yview)
@@ -69,5 +72,3 @@ class DistractionBlockerTab(ttk.Frame):
         if self.console_text:
             self.console_text.configure(bg=colors["console_bg"],
                                         fg=colors["console_fg"])
-
-

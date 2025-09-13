@@ -1,3 +1,5 @@
+# settings_tab.py
+
 import tkinter as tk
 from tkinter import ttk
 
@@ -69,15 +71,16 @@ class SettingsTab(ttk.Frame):
     def _create_whitelist_frame(self):
         whitelist_frame = ttk.LabelFrame(self, text="Whitelist (one window title per line)", padding=10)
         whitelist_frame.pack(fill='both', padx=5, pady=5, expand=True)
-        self.whitelist_text = tk.Text(whitelist_frame, height=5, font=('Consolas', 9), wrap='word')
+        # CORRECTED FONT TUPLE
+        self.whitelist_text = tk.Text(whitelist_frame, height=5, font=('IBM Plex Mono', 9), wrap='word')
         self.whitelist_text.pack(fill='both', expand=True)
 
     def _create_appearance_frame(self):
         theme_frame = ttk.LabelFrame(self, text="Appearance", padding=10)
         theme_frame.pack(fill='x', padx=5, pady=5)
-        light_rb = ttk.Radiobutton(theme_frame, text="Light Mode", variable=self.theme_var, value="light", command=lambda: self.theme_applier("light"))
+        light_rb = ttk.Radiobutton(theme_frame, text="Scholarly Light", variable=self.theme_var, value="scholarly_light", command=lambda: self.theme_applier("scholarly_light"))
         light_rb.pack(side='left', padx=10)
-        dark_rb = ttk.Radiobutton(theme_frame, text="Dark Mode", variable=self.theme_var, value="dark", command=lambda: self.theme_applier("dark"))
+        dark_rb = ttk.Radiobutton(theme_frame, text="Scholarly Dark", variable=self.theme_var, value="scholarly_dark", command=lambda: self.theme_applier("scholarly_dark"))
         dark_rb.pack(side='left', padx=10)
 
     def get_settings_data(self) -> dict:
