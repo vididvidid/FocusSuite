@@ -1,0 +1,3 @@
+# Beginner's Guide
+
+...existing content from docs/BEGINNER_GUIDE.md...

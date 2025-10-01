@@ -1,0 +1,3 @@
+# Contributing Guide
+
+...existing content from docs/CONTRIBUTING.md...
